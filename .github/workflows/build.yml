@@ -60,7 +60,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v7
         with:
-          ref: ${{ github.event.inputs.tag || github.ref }}
+          ref: ${{ github.ref }}
 
       - name: Download and extract Win7SDK
         shell: powershell
@@ -181,6 +181,9 @@ jobs:
     permissions:
       contents: write
     steps:
+      - name: Checkout release notes
+        uses: actions/checkout@v7
+
       - name: Download build outputs
         uses: actions/download-artifact@v8
         with:
@@ -210,14 +213,9 @@ jobs:
           tag_name: ${{ needs.prepare.outputs.tag }}
           name: ${{ needs.prepare.outputs.tag }}
           draft: true
+          prerelease: true
           files: dist/KexSetup_*
-          body: |
-            ## VxKex NEXT Build - ${{ needs.prepare.outputs.tag }}
-
-            Built from tag: `${{ needs.prepare.outputs.tag }}`
-
-            If you are not a VxKex NEXT developer, please use the **Release** version.  
-            如果您不是 VxKex NEXT 开发者，请使用 **Release** 版本。
+          body_path: STEAM_WIN7_RELEASE_NOTES.md
 
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
