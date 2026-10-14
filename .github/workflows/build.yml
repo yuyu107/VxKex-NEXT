@@ -2,7 +2,7 @@ name: Build, Release
 
 on:
   push:
-    branches: [ test ]
+    branches: [ test, 'release/1.2.3.2464' ]
     tags:
       - '*'
   pull_request:
