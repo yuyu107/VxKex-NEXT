@@ -35,6 +35,13 @@ jobs:
             echo "tag=$tag" >> "$GITHUB_OUTPUT"
             echo "artifact_name=VxKex-NEXT-$tag" >> "$GITHUB_OUTPUT"
             echo "file_suffix=$tag" >> "$GITHUB_OUTPUT"
+          elif [ "${{ github.event_name }}" == "push" ] && [ "${{ github.ref }}" == "refs/heads/release/1.2.3.2464" ]; then
+            # Dedicated release branch: build and prepare a draft release.
+            tag="1.2.3.2464"
+            echo "is_release=true" >> "$GITHUB_OUTPUT"
+            echo "tag=$tag" >> "$GITHUB_OUTPUT"
+            echo "artifact_name=VxKex-NEXT-$tag" >> "$GITHUB_OUTPUT"
+            echo "file_suffix=$tag" >> "$GITHUB_OUTPUT"
           elif [ "${{ github.event_name }}" == "workflow_dispatch" ] && [ -n "${{ github.event.inputs.tag }}" ]; then
             # Manual dispatch with tag specified - this is a release
             tag="${{ github.event.inputs.tag }}"
@@ -211,6 +218,7 @@ jobs:
         uses: softprops/action-gh-release@v3
         with:
           tag_name: ${{ needs.prepare.outputs.tag }}
+          target_commitish: ${{ github.sha }}
           name: ${{ needs.prepare.outputs.tag }}
           draft: true
           prerelease: true
