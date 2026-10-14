@@ -11,6 +11,34 @@
 #define MAX_TOUCH_POINTS 256
 #define MAX_PEN_POINTS 256
 
+
+/*
+ * Windows 8 touch injection API compatibility stubs.
+ *
+ * Windows 7 does not provide these USER32 exports.  Adding the exports
+ * allows applications which statically import them to load, but does not
+ * implement synthetic touch input.
+ */
+BOOL WINAPI InitializeTouchInjection(
+    UINT32 maxCount,
+    DWORD dwMode)
+{
+    UNREFERENCED_PARAMETER(maxCount);
+    UNREFERENCED_PARAMETER(dwMode);
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+    return FALSE;
+}
+
+BOOL WINAPI InjectTouchInput(
+    UINT32 count,
+    const POINTER_TOUCH_INFO *contacts)
+{
+    UNREFERENCED_PARAMETER(count);
+    UNREFERENCED_PARAMETER(contacts);
+    SetLastError(ERROR_CALL_NOT_IMPLEMENTED);
+    return FALSE;
+}
+
 STATIC BOOLEAN g_MouseInPointerEnabled = FALSE;
 
 STATIC TOUCH_POINT_ENTRY g_TouchPoints[MAX_TOUCH_POINTS];

@@ -132,6 +132,8 @@ EXPORTS
 	RegisterPointerDeviceNotifications
 	GetWindowFeedbackSetting
 	SetWindowFeedbackSetting
+	InitializeTouchInjection
+	InjectTouchInput
 
 	;;
 	;; processref.c
