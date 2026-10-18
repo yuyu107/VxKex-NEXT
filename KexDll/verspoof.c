@@ -274,6 +274,27 @@ VOID KexApplyVersionSpoof(
 	KexHkInstallBasicHook(RtlGetVersion, Ext_RtlGetVersion, NULL);
 
 	//
+	// Roblox-only diagnostics, taken before the app-specific early-return
+	// conditions. Preserve the original spoofing behavior.
+	//
+	if (AshExeBaseNameIs(L"RobloxPlayerBeta.exe")) {
+		PPEB TracePeb = NtCurrentPeb();
+		KexLogInformationEvent(
+			L"[RobloxVersionTrace] SpoofPrecheck PEB=%lu.%lu.%lu "
+			L"SharedUserData=%lu.%lu.%lu flags=0x%08lx "
+			L"processFlags=0x%08lx chromium=%lu disableAppSpecific=%lu",
+			TracePeb->OSMajorVersion, TracePeb->OSMinorVersion,
+			(ULONG) TracePeb->OSBuildNumber,
+			SharedUserData->NtMajorVersion,
+			SharedUserData->NtMinorVersion,
+			(ULONG) SharedUserData->NtBuildNumber,
+			KexData->IfeoParameters.StrongVersionSpoof,
+			KexData->Flags,
+			(ULONG) !!(KexData->Flags & KEXDATA_FLAG_CHROMIUM),
+			(ULONG) KexData->IfeoParameters.DisableAppSpecific);
+	}
+
+	//
 	// APPSPECIFICHACK: Spoof version of .NET applications without breaking .NET
 	// Only leave the RtlGetVersion hook active and leave everything else the same.
 	//
@@ -289,7 +310,21 @@ VOID KexApplyVersionSpoof(
 			AshExeBaseNameIs(L"Update.exe") ||
 			(KexData->Flags & KEXDATA_FLAG_CHROMIUM) ||
 			IsCurrentProcessInternetExplorer()) {
-			
+
+			if (AshExeBaseNameIs(L"RobloxPlayerBeta.exe")) {
+				PPEB TracePeb = NtCurrentPeb();
+				KexLogInformationEvent(
+					L"[RobloxVersionTrace] SpoofEarlyReturn "
+					L"reason=app-specific PEB=%lu.%lu.%lu "
+					L"SharedUserData=%lu.%lu.%lu processFlags=0x%08lx chromium=%lu",
+					TracePeb->OSMajorVersion, TracePeb->OSMinorVersion,
+					(ULONG) TracePeb->OSBuildNumber,
+					SharedUserData->NtMajorVersion,
+					SharedUserData->NtMinorVersion,
+					(ULONG) SharedUserData->NtBuildNumber,
+					KexData->Flags,
+					(ULONG) !!(KexData->Flags & KEXDATA_FLAG_CHROMIUM));
+			}
 			return;
 		}
 	}
