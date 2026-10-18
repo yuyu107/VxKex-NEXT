@@ -2,9 +2,62 @@
 #include "kxbasep.h"
 #include <KexStrSafe.h>
 
+/*
+ * Roblox version-check diagnostics: record the actual values returned by the
+ * existing wrappers without changing their behavior or the caller's last-error.
+ */
+STATIC volatile LONG RobloxBaseTraceBusy = 0;
+STATIC volatile LONG RobloxBaseTraceEvents = 0;
+
+STATIC VOID KxBaseTraceRobloxVersion(
+    IN PCWSTR Api,
+    IN PCVOID Caller,
+    IN BOOL Success,
+    IN ULONG Major,
+    IN ULONG Minor,
+    IN ULONG Build,
+    IN DWORD TypeMask)
+{
+    ULONG OldLastError;
+    PLDR_DATA_TABLE_ENTRY Entry;
+    NTSTATUS Status;
+
+    OldLastError = GetLastError();
+
+    if (!KexData || !KexData->LogHandle ||
+        !AshExeBaseNameIs(L"RobloxPlayerBeta.exe")) {
+        SetLastError(OldLastError);
+        return;
+    }
+
+    if (InterlockedCompareExchange(&RobloxBaseTraceBusy, 1, 0) != 0) {
+        SetLastError(OldLastError);
+        return;
+    }
+
+    if (InterlockedIncrement(&RobloxBaseTraceEvents) <= 128) {
+        Entry = NULL;
+        Status = LdrFindEntryForAddress(Caller, &Entry);
+        if (NT_SUCCESS(Status) && Entry) {
+            KexLogInformationEvent(
+                L"[RobloxVersionTrace] %s caller=%p module=%wZ base=%p success=%lu returned=%lu.%lu.%lu mask=0x%08lx lastError=%lu",
+                Api, Caller, &Entry->BaseDllName, Entry->DllBase,
+                (ULONG) Success, Major, Minor, Build, TypeMask, OldLastError);
+        } else {
+            KexLogInformationEvent(
+                L"[RobloxVersionTrace] %s caller=%p module=<unknown> success=%lu returned=%lu.%lu.%lu mask=0x%08lx lastError=%lu",
+                Api, Caller, (ULONG) Success, Major, Minor, Build, TypeMask, OldLastError);
+        }
+    }
+
+    InterlockedExchange(&RobloxBaseTraceBusy, 0);
+    SetLastError(OldLastError);
+}
+
 KXBASEAPI DWORD WINAPI Ext_GetVersion(
 	VOID)
 {
+	PCVOID Caller = ReturnAddress();
 	DWORD Result = GetVersion();
 	WORD Loword = LOWORD(Result);
 	INT	Major = LOBYTE(Loword);
@@ -21,6 +74,8 @@ KXBASEAPI DWORD WINAPI Ext_GetVersion(
 			Result = (HIWORD(Result) << 16) | MAKEWORD(Major, Minor);
 		}
 	}
+	KxBaseTraceRobloxVersion(L"GetVersion", Caller, TRUE,
+		LOBYTE(LOWORD(Result)), HIBYTE(LOWORD(Result)), HIWORD(Result), 0);
 	return Result;
 }
 
@@ -37,6 +92,7 @@ KXBASEAPI BOOL WINAPI Ext_GetVersionExA(
 	IN OUT	POSVERSIONINFOA	VersionInfo)
 {
 	BOOL Success;
+	PCVOID Caller = ReturnAddress();
 
 	Success = GetVersionExA(VersionInfo);
 
@@ -81,6 +137,10 @@ KXBASEAPI BOOL WINAPI Ext_GetVersionExA(
 		}
 	}
 
+	KxBaseTraceRobloxVersion(L"GetVersionExA", Caller, Success,
+		Success ? VersionInfo->dwMajorVersion : 0,
+		Success ? VersionInfo->dwMinorVersion : 0,
+		Success ? VersionInfo->dwBuildNumber : 0, 0);
 	return Success;
 }
 
@@ -88,6 +148,7 @@ KXBASEAPI BOOL WINAPI Ext_GetVersionExW(
 	IN OUT	POSVERSIONINFOW	VersionInfo)
 {
 	BOOL Success;
+	PCVOID Caller = ReturnAddress();
 
 	Success = GetVersionExW(VersionInfo);
 
@@ -132,6 +193,10 @@ KXBASEAPI BOOL WINAPI Ext_GetVersionExW(
 		}
 	}
 
+	KxBaseTraceRobloxVersion(L"GetVersionExW", Caller, Success,
+		Success ? VersionInfo->dwMajorVersion : 0,
+		Success ? VersionInfo->dwMinorVersion : 0,
+		Success ? VersionInfo->dwBuildNumber : 0, 0);
 	return Success;
 }
 
@@ -140,6 +205,19 @@ KXBASEAPI BOOL WINAPI Ext_VerifyVersionInfoW(
 	IN	DWORD				dwTypeMask,
 	IN	DWORDLONG			dwlConditionMask)
 {
-	if (AshExeBaseNameIs(L"RobloxStudioBeta.exe")) return TRUE;
-	return VerifyVersionInfoW(lpVersionInformation, dwTypeMask, dwlConditionMask);
+	BOOL Success;
+	PCVOID Caller = ReturnAddress();
+
+	if (AshExeBaseNameIs(L"RobloxStudioBeta.exe")) {
+		Success = TRUE;
+	} else {
+		Success = VerifyVersionInfoW(lpVersionInformation, dwTypeMask, dwlConditionMask);
+	}
+
+	KxBaseTraceRobloxVersion(L"VerifyVersionInfoW", Caller, Success,
+		lpVersionInformation ? lpVersionInformation->dwMajorVersion : 0,
+		lpVersionInformation ? lpVersionInformation->dwMinorVersion : 0,
+		lpVersionInformation ? lpVersionInformation->dwBuildNumber : 0,
+		dwTypeMask);
+	return Success;
 }

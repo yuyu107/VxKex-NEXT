@@ -34,10 +34,62 @@ PCWSTR HumanReadableWinVerSpoof[] = {
 
 UNICODE_STRING CSDVersionUnicodeString;
 
+/*
+ * Diagnostic-only probes for RobloxPlayerBeta.exe.
+ * These do not modify returned values. Keep the log bounded because these
+ * functions can be called often during early process initialization.
+ */
+STATIC volatile LONG RobloxVersionTraceBusy = 0;
+STATIC volatile LONG RobloxVersionTraceEvents = 0;
+
+STATIC VOID KexTraceRobloxVersion(
+    IN PCWSTR Api,
+    IN PCVOID Caller,
+    IN ULONG Major,
+    IN ULONG Minor,
+    IN ULONG Build)
+{
+    ULONG OldLastError;
+    PLDR_DATA_TABLE_ENTRY Entry;
+    NTSTATUS Status;
+
+    OldLastError = RtlGetLastWin32Error();
+
+    if (!KexData || !KexData->LogHandle ||
+        !AshExeBaseNameIs(L"RobloxPlayerBeta.exe")) {
+        RtlSetLastWin32Error(OldLastError);
+        return;
+    }
+
+    if (InterlockedCompareExchange(&RobloxVersionTraceBusy, 1, 0) != 0) {
+        RtlSetLastWin32Error(OldLastError);
+        return;
+    }
+
+    if (InterlockedIncrement(&RobloxVersionTraceEvents) <= 128) {
+        Entry = NULL;
+        Status = LdrFindEntryForAddress(Caller, &Entry);
+        if (NT_SUCCESS(Status) && Entry) {
+            KexLogInformationEvent(
+                L"[RobloxVersionTrace] %s caller=%p module=%wZ base=%p returned=%lu.%lu.%lu",
+                Api, Caller, &Entry->BaseDllName, Entry->DllBase,
+                Major, Minor, Build);
+        } else {
+            KexLogInformationEvent(
+                L"[RobloxVersionTrace] %s caller=%p module=<unknown> returned=%lu.%lu.%lu",
+                Api, Caller, Major, Minor, Build);
+        }
+    }
+
+    InterlockedExchange(&RobloxVersionTraceBusy, 0);
+    RtlSetLastWin32Error(OldLastError);
+}
+
 STATIC NTSTATUS NTAPI Ext_RtlGetVersion(
 	OUT	PRTL_OSVERSIONINFOEXW	Version)
 {
 	PPEB Peb;
+	PCVOID Caller = ReturnAddress();
 
 	Peb = NtCurrentPeb();
 
@@ -145,6 +197,8 @@ STATIC NTSTATUS NTAPI Ext_RtlGetVersion(
 		}
 	}
 
+	KexTraceRobloxVersion(L"RtlGetVersion", Caller,
+		Version->dwMajorVersion, Version->dwMinorVersion, Version->dwBuildNumber);
 	return STATUS_SUCCESS;
 }
 
@@ -154,6 +208,7 @@ STATIC VOID NTAPI Ext_RtlGetNtVersionNumbers(
 	OUT	PULONG	BuildNumber OPTIONAL)
 {
 	PPEB Peb;
+	PCVOID Caller = ReturnAddress();
 	ULONG ReturnMajorVersion;
 	ULONG ReturnMinorVersion;
 	ULONG ReturnBuildNumber;
@@ -188,6 +243,9 @@ STATIC VOID NTAPI Ext_RtlGetNtVersionNumbers(
 	if (BuildNumber) {
 		*BuildNumber = ReturnBuildNumber | 0xF0000000;
 	}
+
+	KexTraceRobloxVersion(L"RtlGetNtVersionNumbers", Caller,
+		ReturnMajorVersion, ReturnMinorVersion, ReturnBuildNumber);
 }
 
 VOID KexApplyVersionSpoof(
