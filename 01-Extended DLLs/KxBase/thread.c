@@ -22,6 +22,24 @@
 #include "kxbasep.h"
 
 //
+// Windows 11 exposes FlsGetValue2 as an FLS lookup which does not modify
+// the caller's last-error value. Windows 7 already supports FLS through
+// FlsGetValue, so preserve last-error across that call.
+//
+KXBASEAPI PVOID WINAPI FlsGetValue2(
+	IN	DWORD	FlsIndex)
+{
+	DWORD PreviousLastError;
+	PVOID Value;
+
+	PreviousLastError = GetLastError();
+	Value = FlsGetValue(FlsIndex);
+	SetLastError(PreviousLastError);
+
+	return Value;
+}
+
+//
 // Retrieves the description that was assigned to a thread by calling
 // SetThreadDescription.
 //
