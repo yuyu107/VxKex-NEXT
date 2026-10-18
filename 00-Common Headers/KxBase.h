@@ -614,6 +614,9 @@ WINBASEAPI ULONG WINAPI BaseSetLastNTError(
 // thread.c
 //
 
+KXBASEAPI PVOID WINAPI FlsGetValue2(
+	IN	DWORD	FlsIndex);
+
 KXBASEAPI HRESULT WINAPI GetThreadDescription(
 	IN	HANDLE	ThreadHandle,
 	OUT	PPWSTR	ThreadDescription);
