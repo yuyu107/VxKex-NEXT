@@ -417,4 +417,18 @@ VOID KexApplyVersionSpoof(
 	//
 	// TODO: Implement registry strong spoofing.
 	//
+	// Diagnostic only: verify the state visible to direct readers of the
+	// process environment block and KUSER_SHARED_DATA after spoofing.
+	// No version values are modified by this check.
+	//
+	if (AshExeBaseNameIs(L"RobloxPlayerBeta.exe")) {
+		KexLogInformationEvent(
+			L"[RobloxVersionTrace] SpoofSnapshot PEB=%lu.%lu.%lu "
+			L"SharedUserData=%lu.%lu.%lu flags=0x%08lx",
+			Peb->OSMajorVersion, Peb->OSMinorVersion,
+			(ULONG) Peb->OSBuildNumber,
+			SharedUserData->NtMajorVersion, SharedUserData->NtMinorVersion,
+			(ULONG) SharedUserData->NtBuildNumber,
+			KexData->IfeoParameters.StrongVersionSpoof);
+	}
 }
