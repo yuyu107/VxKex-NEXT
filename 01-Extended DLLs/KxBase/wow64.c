@@ -4,15 +4,27 @@
 KXBASEAPI BOOL WINAPI IsWow64Process2(
 	IN	HANDLE	ProcessHandle,
 	OUT	PUSHORT	ProcessMachine,
-	OUT	PUSHORT	NativeMachine)
+	OUT	PUSHORT	NativeMachine OPTIONAL)
 {
 	NTSTATUS Status;
+	USHORT ProcessMachineType;
+	USHORT NativeMachineType;
 
-	Status = KexRtlWow64GetProcessMachines(ProcessHandle, ProcessMachine, NativeMachine);
+	Status = KexRtlWow64GetProcessMachines(
+		ProcessHandle, &ProcessMachineType, &NativeMachineType);
 
 	if (!NT_SUCCESS(Status)) {
 		BaseSetLastNTError(Status);
 		return FALSE;
+	}
+
+	// IsWow64Process2 reports UNKNOWN for a native process, including an x86
+	// process on 32-bit Windows. The RTL helper returns its actual machine type.
+	*ProcessMachine = (ProcessMachineType == NativeMachineType) ?
+		IMAGE_FILE_MACHINE_UNKNOWN : ProcessMachineType;
+
+	if (NativeMachine != NULL) {
+		*NativeMachine = NativeMachineType;
 	}
 
 	return TRUE;

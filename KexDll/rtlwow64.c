@@ -9,9 +9,8 @@ KEXAPI NTSTATUS NTAPI KexRtlWow64GetProcessMachines(
 	NTSTATUS Status;
 
 	//
-	// The KexRtlOperatingSystemBitness macro checks a field in SharedUserData in order
-	// to determine whether the operating system is 64-bit or 32-bit (independently of
-	// whether this is a WOW64 process or not).
+	// Determine the real OS bitness independently of the spoofed Windows version
+	// and of whether the current process is running under WOW64.
 	//
 
 	if (KexRtlOperatingSystemBitness() == 64) {
@@ -50,7 +49,7 @@ KEXAPI NTSTATUS NTAPI KexRtlWow64GetProcessMachines(
 				return Status;
 			}
 
-			if (ProcessWow64Information) {
+			if (AddressOf32BitPeb) {
 				*ProcessMachine = IMAGE_FILE_MACHINE_I386;
 			} else {
 				*ProcessMachine = IMAGE_FILE_MACHINE_AMD64;
